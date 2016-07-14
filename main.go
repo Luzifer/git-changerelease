@@ -21,8 +21,9 @@ import (
 )
 
 type configFile struct {
-	MatchPatch []string `yaml:"match_patch"`
-	MatchMajor []string `yaml:"match_major"`
+	MatchPatch           []string `yaml:"match_patch"`
+	MatchMajor           []string `yaml:"match_major"`
+	ReleaseCommitMessage string   `yaml:"release_commit_message"`
 }
 
 var (
@@ -79,6 +80,9 @@ func loadConfig() error {
 		return errors.New("Config file does not exist, use --create-config to create one")
 	}
 
+	defaultConfigData, _ := Asset("assets/git_changerelease.yaml")
+	yaml.Unmarshal(defaultConfigData, &config)
+
 	data, err := ioutil.ReadFile(cfg.ConfigFile)
 	if err != nil {
 		return err
@@ -99,6 +103,17 @@ func readChangelog() string {
 	}
 
 	return changelog
+}
+
+func quickTemplate(name string, tplSrc []byte, values map[string]interface{}) ([]byte, error) {
+	tpl, err := template.New(name).Parse(string(tplSrc))
+	if err != nil {
+		return nil, errors.New("Unable to parse log template: " + err.Error())
+	}
+	buf := bytes.NewBuffer([]byte{})
+	tpl.Execute(buf, values)
+
+	return buf.Bytes(), nil
 }
 
 func main() {
@@ -155,19 +170,17 @@ func main() {
 
 	// Render log
 	rawTpl, _ := Asset("assets/log_template.md")
-	tpl, err := template.New("log_template").Parse(string(rawTpl))
-	if err != nil {
-		log.Fatalf("Unable to parse log template: %s", err)
-	}
-	buf := bytes.NewBuffer([]byte{})
-	tpl.Execute(buf, map[string]interface{}{
+	c, err := quickTemplate("log_template", rawTpl, map[string]interface{}{
 		"NextVersion": newVersion,
 		"Now":         time.Now(),
 		"LogLines":    logs,
 		"OldLog":      readChangelog(),
 	})
+	if err != nil {
+		log.Fatalf("Unable to compile log: %s", err)
+	}
 
-	if err := ioutil.WriteFile(cfg.ChangelogFile, bytes.TrimSpace(buf.Bytes()), 0644); err != nil {
+	if err := ioutil.WriteFile(cfg.ChangelogFile, bytes.TrimSpace(c), 0644); err != nil {
 		log.Fatalf("Unable to write new changelog: %s", err)
 	}
 
@@ -192,14 +205,24 @@ func main() {
 		log.Fatalf("Unable to parse new version from log: %s", err)
 	}
 
+	stringVersion := "v" + newVersion.String()
+
 	// Write the tag
 	if _, err := gitErr("add", cfg.ChangelogFile); err != nil {
 		log.Fatalf("Unable to add changelog file: %s", err)
 	}
-	if _, err := gitErr("commit", "-m", "prepare release v"+newVersion.String()); err != nil {
+
+	commitMessage, err := quickTemplate("commitMessage", []byte(config.ReleaseCommitMessage), map[string]interface{}{
+		"Version": stringVersion,
+	})
+	if err != nil {
+		log.Fatalf("Unable to compile commit message: %s", err)
+	}
+	if _, err := gitErr("commit", "-m", string(commitMessage)); err != nil {
 		log.Fatalf("Unable to commit changelog: %s", err)
 	}
-	if _, err := gitErr("tag", "-s", "-m", "v"+newVersion.String(), "v"+newVersion.String()); err != nil {
+
+	if _, err := gitErr("tag", "-s", "-m", stringVersion, stringVersion); err != nil {
 		log.Fatalf("Unable to tag release: %s", err)
 	}
 }

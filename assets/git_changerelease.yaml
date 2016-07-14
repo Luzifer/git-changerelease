@@ -4,3 +4,5 @@ match_patch:
 
 match_major:
   - "^[Bb]reaking"
+
+release_commit_message: "prepare release {{.Version}}"
