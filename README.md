@@ -1,3 +1,7 @@
+![license](https://badges.fyi/github/license/Luzifer/git-changerelease)
+[![download](https://badges.fyi/static/download/on GoBuilder.me)](https://gobuilder.me/github.com/Luzifer/git-changerelease)
+![travis](https://badges.fyi/travis/Luzifer/git-changerelease)
+
 # Luzifer / git-changerelease
 
 `git-changerelease` is a git-subcommand to write the changelog in a consistent format and tag it using [semantic versioning](http://semver.org/). You can see the version it writes in the [History.md](History.md) file in this repository.
