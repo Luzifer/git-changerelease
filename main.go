@@ -43,7 +43,7 @@ var (
 	version = "dev"
 )
 
-func init() {
+func prepareRun() {
 	if err := rconfig.Parse(&cfg); err != nil {
 		log.Fatalf("Unable to parse commandline options: %s", err)
 	}
@@ -117,6 +117,8 @@ func quickTemplate(name string, tplSrc []byte, values map[string]interface{}) ([
 }
 
 func main() {
+	prepareRun()
+
 	// Get last tag
 	lastTag, err := gitSilent("describe", "--tags", "--abbrev=0")
 
