@@ -1,3 +1,7 @@
+# 0.5.1 / 2016-07-14
+
+  * vendor dependencies
+
 # 0.5.0 / 2016-07-14
 
   * make commit message configurable
