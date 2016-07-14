@@ -11,8 +11,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,34 +19,6 @@ import (
 	"github.com/Luzifer/rconfig"
 	"github.com/mitchellh/go-homedir"
 )
-
-type semVerBump uint
-
-const (
-	semVerBumpMinor semVerBump = iota
-	semVerBumpPatch
-	semVerBumpMajor
-)
-
-type commit struct {
-	ShortHash   string
-	Subject     string
-	AuthorName  string
-	AuthorEmail string
-}
-
-func parseCommit(line string) (*commit, error) {
-	t := strings.Split(line, "\t")
-	if len(t) != 4 {
-		return nil, errors.New("Unexpected line format")
-	}
-	return &commit{
-		ShortHash:   t[0],
-		Subject:     t[1],
-		AuthorName:  t[2],
-		AuthorEmail: t[3],
-	}, nil
-}
 
 type configFile struct {
 	MatchPatch []string `yaml:"match_patch"`
@@ -117,102 +87,6 @@ func loadConfig() error {
 	return yaml.Unmarshal(data, &config)
 }
 
-func git(stderrEnabled bool, args ...string) (string, error) {
-	buf := bytes.NewBuffer([]byte{})
-
-	cmd := exec.Command("git", args...)
-	cmd.Stdout = buf
-	if stderrEnabled {
-		cmd.Stderr = os.Stderr
-	}
-	err := cmd.Run()
-
-	return strings.TrimSpace(buf.String()), err
-}
-
-func gitErr(args ...string) (string, error) {
-	return git(true, args...)
-}
-
-func gitSilent(args ...string) (string, error) {
-	return git(false, args...)
-}
-
-func doSemVerBump(previousVersion string, bumpType semVerBump) (string, error) {
-	previousVersion = strings.Split(previousVersion, "-")[0] // Don't care about pre-release / meta-data
-	previousVersion = strings.TrimLeft(previousVersion, "v")
-	elements := strings.Split(previousVersion, ".")
-	major, err := strconv.Atoi(elements[0])
-	if err != nil {
-		return "", err
-	}
-	minor, err := strconv.Atoi(elements[1])
-	if err != nil {
-		return "", err
-	}
-	patch, err := strconv.Atoi(elements[2])
-	if err != nil {
-		return "", err
-	}
-
-	switch bumpType {
-	case semVerBumpPatch:
-		patch += 1
-	case semVerBumpMinor:
-		patch = 0
-		minor += 1
-	case semVerBumpMajor:
-		patch = 0
-		minor = 0
-		major += 1
-	}
-
-	nextVer := []string{strings.Join([]string{
-		strconv.Itoa(major),
-		strconv.Itoa(minor),
-		strconv.Itoa(patch),
-	}, ".")}
-
-	if cfg.PreRelease != "" {
-		nextVer = append(nextVer, "-"+cfg.PreRelease)
-	}
-	if cfg.ReleaseMeta != "" {
-		nextVer = append(nextVer, "+"+cfg.ReleaseMeta)
-	}
-
-	return strings.Join(nextVer, ""), nil
-}
-
-func selectBumpType(logs []commit) (semVerBump, error) {
-	bump := semVerBumpMinor
-
-	matchers := map[*regexp.Regexp]semVerBump{}
-	for _, m := range config.MatchPatch {
-		r, err := regexp.Compile(m)
-		if err != nil {
-			return 0, err
-		}
-		matchers[r] = semVerBumpPatch
-	}
-	for _, m := range config.MatchMajor {
-		r, err := regexp.Compile(m)
-		if err != nil {
-			return 0, err
-		}
-		matchers[r] = semVerBumpMajor
-	}
-
-	for _, l := range logs {
-		for m, t := range matchers {
-			if m.MatchString(l.Subject) && t > bump {
-				bump = t
-			}
-		}
-	}
-
-	return bump, nil
-}
-
 func readChangelog() string {
 	var changelog string
 
@@ -232,7 +106,7 @@ func main() {
 	lastTag, err := gitSilent("describe", "--tags", "--abbrev=0")
 
 	// Fetch logs since last tag / since repo start
-	logArgs := []string{"log", `--format=%h%x09%s%x09%an%x09%ae`, "--abbrev-commit"}
+	logArgs := []string{"log", `--format=` + gitLogFormat, "--abbrev-commit"}
 	if err == nil {
 		logArgs = append(logArgs, fmt.Sprintf("%s..HEAD", lastTag))
 	} else {
@@ -269,10 +143,15 @@ func main() {
 	}
 
 	// Generate new version
-	newVersion, err := doSemVerBump(lastTag, semVerBumpType)
+	newVersion, err := parseSemVer(lastTag)
 	if err != nil {
-		log.Fatalf("Was unable to increase the version: %s", err)
+		log.Fatalf("Was unable to parse previous version: %s", err)
 	}
+	if newVersion.PreReleaseInformation == "" && cfg.PreRelease == "" {
+		newVersion.Bump(semVerBumpType)
+	}
+	newVersion.PreReleaseInformation = cfg.PreRelease
+	newVersion.MetaData = cfg.ReleaseMeta
 
 	// Render log
 	rawTpl, _ := Asset("assets/log_template.md")
@@ -308,16 +187,19 @@ func main() {
 	if len(changelog) < 1 {
 		log.Fatalf("Changelog is empty, no way to read back the version.")
 	}
-	newVersion = strings.Split(changelog[0], " ")[1]
+	newVersion, err = parseSemVer(strings.Split(changelog[0], " ")[1])
+	if err != nil {
+		log.Fatalf("Unable to parse new version from log: %s", err)
+	}
 
 	// Write the tag
 	if _, err := gitErr("add", cfg.ChangelogFile); err != nil {
 		log.Fatalf("Unable to add changelog file: %s", err)
 	}
-	if _, err := gitErr("commit", "-m", "Prepared release v"+newVersion); err != nil {
+	if _, err := gitErr("commit", "-m", "Prepared release v"+newVersion.String()); err != nil {
 		log.Fatalf("Unable to commit changelog: %s", err)
 	}
-	if _, err := gitErr("tag", "-s", "-m", "v"+newVersion, "v"+newVersion); err != nil {
+	if _, err := gitErr("tag", "-s", "-m", "v"+newVersion.String(), "v"+newVersion.String()); err != nil {
 		log.Fatalf("Unable to tag release: %s", err)
 	}
 }
