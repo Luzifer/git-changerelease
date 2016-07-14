@@ -1,3 +1,7 @@
+# 0.3.0 / 2016-07-14
+
+  * add README and LICENSE
+
 # 0.2.1 / 2016-07-14
 
   * fix collecting newlines at the bottom
