@@ -1,3 +1,8 @@
+# 0.5.2 / 2016-07-14
+
+  * prevent running runtime checks in tests
+  * add metadata
+
 # 0.5.1 / 2016-07-14
 
   * vendor dependencies
