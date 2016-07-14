@@ -167,7 +167,7 @@ func main() {
 		"OldLog":      readChangelog(),
 	})
 
-	if err := ioutil.WriteFile(cfg.ChangelogFile, buf.Bytes(), 0644); err != nil {
+	if err := ioutil.WriteFile(cfg.ChangelogFile, bytes.TrimSpace(buf.Bytes()), 0644); err != nil {
 		log.Fatalf("Unable to write new changelog: %s", err)
 	}
 
