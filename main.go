@@ -196,7 +196,7 @@ func main() {
 	if _, err := gitErr("add", cfg.ChangelogFile); err != nil {
 		log.Fatalf("Unable to add changelog file: %s", err)
 	}
-	if _, err := gitErr("commit", "-m", "Prepared release v"+newVersion.String()); err != nil {
+	if _, err := gitErr("commit", "-m", "prepare release v"+newVersion.String()); err != nil {
 		log.Fatalf("Unable to commit changelog: %s", err)
 	}
 	if _, err := gitErr("tag", "-s", "-m", "v"+newVersion.String(), "v"+newVersion.String()); err != nil {
