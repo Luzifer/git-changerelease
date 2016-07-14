@@ -1,3 +1,7 @@
+# 0.5.0 / 2016-07-14
+
+  * make commit message configurable
+
 # 0.4.0 / 2016-07-14
 
   * change wording for release commit
