@@ -1,3 +1,7 @@
+# 0.4.0 / 2016-07-14
+
+  * change wording for release commit
+
 # 0.3.0 / 2016-07-14
 
   * add README and LICENSE
