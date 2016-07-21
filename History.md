@@ -1,3 +1,7 @@
+# 0.5.3 / 2016-07-21
+
+  * fix wrong bump when patch and minor are included
+
 # 0.5.2 / 2016-07-14
 
   * prevent running runtime checks in tests
