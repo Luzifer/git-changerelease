@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -41,6 +42,8 @@ var (
 
 	config  configFile
 	version = "dev"
+
+	matchers = make(map[*regexp.Regexp]semVerBump)
 )
 
 func prepareRun() {
@@ -72,6 +75,22 @@ func prepareRun() {
 
 	if err := loadConfig(); err != nil {
 		log.Fatalf("Unable to load config file: %s", err)
+	}
+
+	// Collect matchers
+	for _, m := range config.MatchPatch {
+		r, err := regexp.Compile(m)
+		if err != nil {
+			log.Fatalf("Unable to parse regex '%s': %s", m, err)
+		}
+		matchers[r] = semVerBumpPatch
+	}
+	for _, m := range config.MatchMajor {
+		r, err := regexp.Compile(m)
+		if err != nil {
+			log.Fatalf("Unable to parse regex '%s': %s", m, err)
+		}
+		matchers[r] = semVerBumpMajor
 	}
 }
 

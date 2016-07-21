@@ -27,6 +27,7 @@ type commit struct {
 	Subject     string
 	AuthorName  string
 	AuthorEmail string
+	BumpType    semVerBump
 }
 
 func parseCommit(line string) (*commit, error) {
@@ -34,12 +35,25 @@ func parseCommit(line string) (*commit, error) {
 	if len(t) != 4 {
 		return nil, errors.New("Unexpected line format")
 	}
-	return &commit{
+
+	c := &commit{
 		ShortHash:   t[0],
 		Subject:     t[1],
 		AuthorName:  t[2],
 		AuthorEmail: t[3],
-	}, nil
+	}
+
+	for rex, bt := range matchers {
+		if rex.MatchString(c.Subject) && bt > c.BumpType {
+			c.BumpType = bt
+		}
+	}
+
+	if c.BumpType == semVerBumpUndecided {
+		c.BumpType = semVerBumpMinor
+	}
+
+	return c, nil
 }
 
 func git(stderrEnabled bool, args ...string) (string, error) {

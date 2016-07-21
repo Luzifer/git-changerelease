@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -10,8 +9,9 @@ import (
 type semVerBump uint
 
 const (
-	semVerBumpMinor semVerBump = iota
+	semVerBumpUndecided semVerBump = iota
 	semVerBumpPatch
+	semVerBumpMinor
 	semVerBumpMajor
 )
 
@@ -91,30 +91,17 @@ func (s *semVer) Bump(bumpType semVerBump) {
 }
 
 func selectBumpType(logs []commit) (semVerBump, error) {
-	bump := semVerBumpMinor
-
-	matchers := map[*regexp.Regexp]semVerBump{}
-	for _, m := range config.MatchPatch {
-		r, err := regexp.Compile(m)
-		if err != nil {
-			return 0, err
-		}
-		matchers[r] = semVerBumpPatch
-	}
-	for _, m := range config.MatchMajor {
-		r, err := regexp.Compile(m)
-		if err != nil {
-			return 0, err
-		}
-		matchers[r] = semVerBumpMajor
-	}
+	bump := semVerBumpUndecided
 
 	for _, l := range logs {
-		for m, t := range matchers {
-			if m.MatchString(l.Subject) && t > bump {
-				bump = t
-			}
+		if l.BumpType > bump {
+			bump = l.BumpType
 		}
+	}
+
+	if bump == semVerBumpUndecided {
+		// Impossible to reach
+		return semVerBumpUndecided, errors.New("Could not decide for any bump type!")
 	}
 
 	return bump, nil
