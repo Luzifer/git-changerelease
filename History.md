@@ -1,3 +1,7 @@
+# 0.5.4 / 2016-10-08
+
+  * Fix: Use text/template, not html/template
+
 # 0.5.3 / 2016-07-21
 
   * fix wrong bump when patch and minor are included
