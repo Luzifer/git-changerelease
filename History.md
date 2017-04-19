@@ -1,3 +1,8 @@
+# 0.5.5 / 2017-04-19
+
+  * Fix README
+  * Add Github publishing
+
 # 0.5.4 / 2016-10-08
 
   * Fix: Use text/template, not html/template
