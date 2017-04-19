@@ -1,5 +1,4 @@
 ![license](https://badges.fyi/github/license/Luzifer/git-changerelease)
-[![download](https://badges.fyi/static/download/on GoBuilder.me)](https://gobuilder.me/github.com/Luzifer/git-changerelease)
 ![travis](https://badges.fyi/travis/Luzifer/git-changerelease)
 
 # Luzifer / git-changerelease
@@ -36,3 +35,7 @@ v0.1.0
 # git describe --tags HEAD
 v0.1.1
 ```
+
+----
+
+![project status](https://d2o84fseuhwkxk.cloudfront.net/git-changerelease.svg)
