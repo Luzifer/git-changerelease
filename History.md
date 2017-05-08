@@ -1,3 +1,7 @@
+# 0.6.0 / 2017-05-08
+
+  * Allow to disable tag signing
+
 # 0.5.5 / 2017-04-19
 
   * Fix README
