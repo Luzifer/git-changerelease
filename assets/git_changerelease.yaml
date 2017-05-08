@@ -1,4 +1,6 @@
 ---
+disable_signed_tags: false
+
 match_patch:
   - "^[fF]ix"
 

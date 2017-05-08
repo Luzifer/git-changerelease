@@ -22,8 +22,9 @@ import (
 )
 
 type configFile struct {
-	MatchPatch           []string `yaml:"match_patch"`
+	DiableTagSigning     bool     `yaml:"disable_signed_tags"`
 	MatchMajor           []string `yaml:"match_major"`
+	MatchPatch           []string `yaml:"match_patch"`
 	ReleaseCommitMessage string   `yaml:"release_commit_message"`
 }
 
@@ -243,7 +244,12 @@ func main() {
 		log.Fatalf("Unable to commit changelog: %s", err)
 	}
 
-	if _, err := gitErr("tag", "-s", "-m", stringVersion, stringVersion); err != nil {
+	tagType := "-s" // By default use signed tags
+	if config.DiableTagSigning {
+		tagType = "-a" // If requested switch to annotated tags
+	}
+
+	if _, err := gitErr("tag", tagType, "-m", stringVersion, stringVersion); err != nil {
 		log.Fatalf("Unable to tag release: %s", err)
 	}
 }
