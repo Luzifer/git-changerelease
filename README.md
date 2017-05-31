@@ -1,5 +1,5 @@
 ![license](https://badges.fyi/github/license/Luzifer/git-changerelease)
-![travis](https://badges.fyi/travis/Luzifer/git-changerelease)
+![](https://badges.fyi/github/downloads/Luzifer/git-changerelease)
 
 # Luzifer / git-changerelease
 
