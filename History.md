@@ -1,3 +1,8 @@
+# 0.7.0 / 2017-05-31
+
+  * Add integration tests
+  * Match only semver tags when searching for last version
+
 # 0.6.0 / 2017-05-08
 
   * Allow to disable tag signing
