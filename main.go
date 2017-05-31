@@ -140,7 +140,7 @@ func main() {
 	prepareRun()
 
 	// Get last tag
-	lastTag, err := gitSilent("describe", "--tags", "--abbrev=0")
+	lastTag, err := gitSilent("describe", "--tags", "--abbrev=0", `--match=v[0-9]*\.[0-9]*\.[0-9]*`)
 
 	// Fetch logs since last tag / since repo start
 	logArgs := []string{"log", `--format=` + gitLogFormat, "--abbrev-commit"}
