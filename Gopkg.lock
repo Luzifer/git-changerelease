@@ -4,23 +4,32 @@
 [[projects]]
   name = "github.com/Luzifer/rconfig"
   packages = ["."]
-  revision = "c27bd3a64b5b19556914d9fec69922cf3852d585"
-  version = "v1.1.0"
+  revision = "7aef1d393c1e2d0758901853b59981c7adc67c7e"
+  version = "v1.2.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
-  revision = "981ab348d865cf048eb7d17e78ac7192632d8415"
+  revision = "3864e76763d94a6df2f9960b16a20a33da9f9a66"
 
 [[projects]]
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "367864438f1b1a3c7db4da06a2f55b144e6784e0"
+  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
+  version = "v1.0.1"
+
+[[projects]]
+  branch = "v2"
+  name = "gopkg.in/validator.v2"
+  packages = ["."]
+  revision = "135c24b11c19e52befcae2ec3fca5d9b78c4e98e"
 
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "53feefa2559fb8dfa8d81baad31be332c97d6c77"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
 
 [solve-meta]
   analyzer-name = "dep"
