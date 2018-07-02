@@ -1,3 +1,12 @@
+# 0.7.1 / 2018-07-02
+
+  * Update vendored libraries
+  * Switch to dep for vendoring
+  * Update reporunner image
+  * Remove GoBuilder file
+  * Update meta files
+  * Execute integration tests in CI
+
 # 0.7.0 / 2017-05-31
 
   * Add integration tests
