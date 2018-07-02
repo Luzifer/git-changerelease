@@ -1,5 +1,7 @@
-![license](https://badges.fyi/github/license/Luzifer/git-changerelease)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Luzifer/git-changerelease)](https://goreportcard.com/report/github.com/Luzifer/git-changerelease)
+![](https://badges.fyi/github/license/Luzifer/git-changerelease)
 ![](https://badges.fyi/github/downloads/Luzifer/git-changerelease)
+![](https://badges.fyi/github/latest-release/Luzifer/git-changerelease)
 
 # Luzifer / git-changerelease
 
