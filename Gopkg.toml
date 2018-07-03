@@ -27,7 +27,19 @@
 
 [[constraint]]
   name = "github.com/Luzifer/rconfig"
-  version = "1.1.0"
+  version = "1.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/mitchellh/go-homedir"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  version = "1.0.5"
+
+[[constraint]]
+  name = "gopkg.in/yaml.v2"
+  version = "2.2.1"
 
 [prune]
   non-go = true
