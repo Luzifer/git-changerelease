@@ -9,6 +9,10 @@ update-sharness:
 	curl -sSLo ./integration/aggregate-results.sh https://cdn.rawgit.com/chriscool/sharness/$(SHARNESS_VERSION)/aggregate-results.sh
 	curl -sSLo ./integration/Makefile https://cdn.rawgit.com/chriscool/sharness/$(SHARNESS_VERSION)/test/Makefile
 
+generate:
+	go-bindata -o assets.go assets/...
+	gofmt -s -w assets.go
+
 test:
 	go test .
 	go vet .

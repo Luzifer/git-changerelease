@@ -79,14 +79,14 @@ func parseSemVer(version string) (*semVer, error) {
 func (s *semVer) Bump(bumpType semVerBump) {
 	switch bumpType {
 	case semVerBumpPatch:
-		s.Patch += 1
+		s.Patch++
 	case semVerBumpMinor:
 		s.Patch = 0
-		s.Minor += 1
+		s.Minor++
 	case semVerBumpMajor:
 		s.Patch = 0
 		s.Minor = 0
-		s.Major += 1
+		s.Major++
 	}
 }
 
@@ -101,7 +101,7 @@ func selectBumpType(logs []commit) (semVerBump, error) {
 
 	if bump == semVerBumpUndecided {
 		// Impossible to reach
-		return semVerBumpUndecided, errors.New("Could not decide for any bump type!")
+		return semVerBumpUndecided, errors.New("Could not decide for any bump type")
 	}
 
 	return bump, nil
