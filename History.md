@@ -1,3 +1,8 @@
+# 0.8.0 / 2018-07-03
+
+  * Update vendored libraries
+  * refactor code, follow linter advices
+
 # 0.7.1 / 2018-07-02
 
   * Update vendored libraries
