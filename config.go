@@ -32,5 +32,5 @@ func loadConfig() (*configFile, error) {
 	defer dataFile.Close()
 
 	c := &configFile{}
-	return c, yaml.NewDecoder(dataFile).Decode(&c)
+	return c, yaml.NewDecoder(dataFile).Decode(c)
 }
