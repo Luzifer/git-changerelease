@@ -21,7 +21,8 @@ func loadConfig() (*configFile, error) {
 		return nil, errors.New("Config file does not exist, use --create-config to create one")
 	}
 
-	if err = yaml.Unmarshal(MustAsset("assets/git_changerelease.yaml"), &config); err != nil {
+	c := &configFile{}
+	if err = yaml.Unmarshal(MustAsset("assets/git_changerelease.yaml"), c); err != nil {
 		return nil, err
 	}
 
@@ -31,6 +32,5 @@ func loadConfig() (*configFile, error) {
 	}
 	defer dataFile.Close()
 
-	c := &configFile{}
 	return c, yaml.NewDecoder(dataFile).Decode(c)
 }
