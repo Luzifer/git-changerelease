@@ -1,3 +1,7 @@
+# 0.9.0 / 2018-09-26
+
+  * Add logic to ignore commit messages
+
 # 0.8.0 / 2018-07-03
 
   * Update vendored libraries
