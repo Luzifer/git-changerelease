@@ -12,6 +12,7 @@ type configFile struct {
 	MatchMajor           []string `yaml:"match_major"`
 	MatchPatch           []string `yaml:"match_patch"`
 	ReleaseCommitMessage string   `yaml:"release_commit_message"`
+	IgnoreMessages       []string `yaml:"ignore_messages"`
 }
 
 func loadConfig() (*configFile, error) {

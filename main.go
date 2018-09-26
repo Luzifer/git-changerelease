@@ -213,7 +213,19 @@ func fetchGitLogs(since string, fetchAll bool) ([]commit, error) {
 		if err != nil {
 			return nil, errors.New("Git used an unexpected log format")
 		}
-		logs = append(logs, *pl)
+
+		addLog := true
+		for _, match := range config.IgnoreMessages {
+			r := regexp.MustCompile(match)
+			if r.MatchString(pl.Subject) {
+				addLog = false
+				break
+			}
+		}
+
+		if addLog {
+			logs = append(logs, *pl)
+		}
 	}
 
 	return logs, nil
