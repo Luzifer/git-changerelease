@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"regexp"
 	"strings"
 	"text/template"
@@ -39,6 +40,15 @@ var (
 
 	matchers = make(map[*regexp.Regexp]semVerBump)
 )
+
+func filenameToGitRoot(fn string) (string, error) {
+	root, err := git(false, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return "", fmt.Errorf("Unable to fetch root dir: %s", err)
+	}
+
+	return path.Join(root, fn), nil
+}
 
 func prepareRun() {
 	var err error
@@ -87,6 +97,10 @@ func prepareRun() {
 	}
 	if err = loadMatcherRegex(config.MatchMajor, semVerBumpMajor); err != nil {
 		log.WithError(err).Fatal("Unable to load major matcher expressions")
+	}
+
+	if cfg.ChangelogFile, err = filenameToGitRoot(cfg.ChangelogFile); err != nil {
+		log.WithError(err).Fatal("Unable to get absolute path to changelog file")
 	}
 }
 
