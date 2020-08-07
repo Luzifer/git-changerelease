@@ -14,9 +14,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Luzifer/rconfig"
 	"github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/Luzifer/rconfig/v2"
 )
 
 var (
@@ -42,6 +43,7 @@ var (
 func prepareRun() {
 	var err error
 
+	rconfig.AutoEnv(true)
 	if err = rconfig.Parse(&cfg); err != nil {
 		log.WithError(err).Fatal("Unable to parse commandline options")
 	}

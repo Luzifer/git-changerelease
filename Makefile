@@ -21,6 +21,6 @@ integration: install
 	cd integration && make all
 
 install: test
-	go install -a -ldflags="-X main.version=$(shell git describe --tags)"
+	go install -a -ldflags="-X main.version=$(shell git describe --tags)" -mod=readonly
 
 .PHONY: integration
