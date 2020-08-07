@@ -2,6 +2,7 @@
 ![](https://badges.fyi/github/license/Luzifer/git-changerelease)
 ![](https://badges.fyi/github/downloads/Luzifer/git-changerelease)
 ![](https://badges.fyi/github/latest-release/Luzifer/git-changerelease)
+![](https://knut.in/project-status/git-changerelease)
 
 # Luzifer / git-changerelease
 
@@ -37,7 +38,3 @@ v0.1.0
 # git describe --tags HEAD
 v0.1.1
 ```
-
-----
-
-![project status](https://d2o84fseuhwkxk.cloudfront.net/git-changerelease.svg)
