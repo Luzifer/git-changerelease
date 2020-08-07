@@ -1,3 +1,11 @@
+# 0.10.0 / 2020-08-07
+
+  * Reference changelog file in git repo root
+  * Docs: Replace broken project status
+  * Lint: Cleanup code a little
+  * Lint: Replace error concat with wrapping
+  * Deps: Move to go modules
+
 # 0.9.0 / 2018-09-26
 
   * Add logic to ignore commit messages
