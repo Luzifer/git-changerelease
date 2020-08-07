@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/Luzifer/rconfig/v2"
@@ -44,7 +44,7 @@ var (
 func filenameToGitRoot(fn string) (string, error) {
 	root, err := git(false, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return "", fmt.Errorf("Unable to fetch root dir: %s", err)
+		return "", errors.Wrap(err, "Unable to fetch root dir")
 	}
 
 	return path.Join(root, fn), nil
@@ -108,7 +108,7 @@ func loadMatcherRegex(matches []string, bump semVerBump) error {
 	for _, match := range matches {
 		r, err := regexp.Compile(match)
 		if err != nil {
-			return fmt.Errorf("Unable to parse regex '%s': %s", match, err)
+			return errors.Wrapf(err, "Unable to parse regex '%s'", match)
 		}
 		matchers[r] = bump
 	}
@@ -181,17 +181,17 @@ func main() {
 func applyTag(stringVersion string) error {
 	var err error
 	if _, err = gitErr("add", cfg.ChangelogFile); err != nil {
-		return fmt.Errorf("Unable to add changelog file: %s", err)
+		return errors.Wrap(err, "Unable to add changelog file")
 	}
 
 	commitMessage, err := quickTemplate("commitMessage", []byte(config.ReleaseCommitMessage), map[string]interface{}{
 		"Version": stringVersion,
 	})
 	if err != nil {
-		return fmt.Errorf("Unable to compile commit message: %s", err)
+		return errors.Wrap(err, "Unable to compile commit message")
 	}
 	if _, err := gitErr("commit", "-m", string(commitMessage)); err != nil {
-		return fmt.Errorf("Unable to commit changelog: %s", err)
+		return errors.Wrap(err, "Unable to commit changelog")
 	}
 
 	tagType := "-s" // By default use signed tags
@@ -200,7 +200,7 @@ func applyTag(stringVersion string) error {
 	}
 
 	if _, err := gitErr("tag", tagType, "-m", stringVersion, stringVersion); err != nil {
-		return fmt.Errorf("Unable to tag release: %s", err)
+		return errors.Wrap(err, "Unable to tag release")
 	}
 
 	return nil
@@ -216,7 +216,7 @@ func fetchGitLogs(since string, fetchAll bool) ([]commit, error) {
 	rawLogs, err := gitErr(logArgs...)
 
 	if err != nil {
-		return nil, fmt.Errorf("Unable to read git log entries: %s", err)
+		return nil, errors.Wrap(err, "Unable to read git log entries")
 	}
 
 	logs := []commit{}
@@ -255,11 +255,11 @@ func renderLog(newVersion *semVer, logs []commit) (*semVer, error) {
 		"OldLog":      readChangelog(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Unable to compile log: %s", err)
+		return nil, errors.Wrap(err, "Unable to compile log")
 	}
 
 	if err = ioutil.WriteFile(cfg.ChangelogFile, bytes.TrimSpace(c), 0644); err != nil {
-		return nil, fmt.Errorf("Unable to write new changelog: %s", err)
+		return nil, errors.Wrap(err, "Unable to write new changelog")
 	}
 
 	// Spawning editor
@@ -280,7 +280,7 @@ func renderLog(newVersion *semVer, logs []commit) (*semVer, error) {
 	}
 	newVersion, err = parseSemVer(strings.Split(changelog[0], " ")[1])
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse new version from log: %s", err)
+		return nil, errors.Wrap(err, "Unable to parse new version from log")
 	}
 
 	return newVersion, nil
@@ -290,13 +290,13 @@ func newVersionFromLogs(lastTag string, logs []commit) (*semVer, error) {
 	// Tetermine increase type
 	semVerBumpType, err := selectBumpType(logs)
 	if err != nil {
-		return nil, fmt.Errorf("Could not determine how to increase the version: %s", err)
+		return nil, errors.Wrap(err, "Could not determine how to increase the version")
 	}
 
 	// Generate new version
 	newVersion, err := parseSemVer(lastTag)
 	if err != nil {
-		return nil, fmt.Errorf("Was unable to parse previous version: %s", err)
+		return nil, errors.Wrap(err, "Was unable to parse previous version")
 	}
 	if newVersion.PreReleaseInformation == "" && cfg.PreRelease == "" {
 		newVersion.Bump(semVerBumpType)

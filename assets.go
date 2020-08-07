@@ -112,8 +112,8 @@ func bindataAssetsGitchangereleaseyaml() (*asset, error) {
 		name:        "assets/git_changerelease.yaml",
 		size:        834,
 		md5checksum: "",
-		mode:        os.FileMode(436),
-		modTime:     time.Unix(1537952066, 0),
+		mode:        os.FileMode(420),
+		modTime:     time.Unix(1537952886, 0),
 	}
 
 	a := &asset{bytes: bytes, info: info}
