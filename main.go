@@ -207,7 +207,7 @@ func renderLogAndGetVersion(newVersion *semVer, logs []commit) (*semVer, error) 
 		NextVersion: newVersion,
 		Now:         time.Now(),
 		LogLines:    logs,
-		OldLog:      oldLog,
+		OldLog:      strings.TrimSpace(oldLog),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("rendering log: %w", err)
