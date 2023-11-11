@@ -79,8 +79,13 @@ func initApp() (err error) {
 		return errors.New("tried to open the changelog in the editor but there is no $EDITOR in your env")
 	}
 
-	if config, err = loadConfig(); err != nil {
-		return fmt.Errorf("loading config file: %w", err)
+	projectConfig, err := filenameInGitRoot(".git_changerelease.yaml")
+	if err != nil {
+		return fmt.Errorf("building filename for project config: %w", err)
+	}
+
+	if config, err = loadConfig(cfg.ConfigFile, projectConfig); err != nil {
+		return fmt.Errorf("loading config file(s): %w", err)
 	}
 
 	// Collect matchers
