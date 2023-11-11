@@ -1,24 +1,26 @@
 package main
 
-//go:generate make generate
-
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"os/exec"
-	"path"
 	"regexp"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/Luzifer/rconfig/v2"
+)
+
+const (
+	fileModeChangelog = 0o644
+	fileModeConfig    = 0o600
 )
 
 var (
@@ -29,8 +31,8 @@ var (
 		MkConfig      bool   `flag:"create-config" default:"false" description:"Copy an example configuration file to the location of --config"`
 		NoEdit        bool   `flag:"no-edit" default:"false" description:"Do not open the $EDITOR to modify the changelog"`
 
-		PreRelease  string `flag:"pre-release" default:"" description:"Pre-Release information to append to the version (e.g. 'beta' or 'alpha.1')"`
-		ReleaseMeta string `flag:"release-meta" default:"" description:"Release metadata to append to the version (e.g. 'exp.sha.5114f85' or '20130313144700')"`
+		PreRelease  string `flag:"pre-release" default:"" description:"Pre-Release information to append to the version (i.e. 'beta' or 'alpha.1')"`
+		ReleaseMeta string `flag:"release-meta" default:"" description:"Release metadata to append to the version (i.e. 'exp.sha.5114f85' or '20130313144700')"`
 
 		VersionAndExit bool `flag:"version" default:"false" description:"Prints current version and exits"`
 	}{}
@@ -39,91 +41,69 @@ var (
 	version = "dev"
 
 	matchers = make(map[*regexp.Regexp]semVerBump)
+
+	errExitZero = errors.New("should exit zero now")
 )
 
-func applyTag(stringVersion string) error {
-	var err error
-	if _, err = gitErr("add", cfg.ChangelogFile); err != nil {
-		return errors.Wrap(err, "Unable to add changelog file")
+func initApp() (err error) {
+	rconfig.AutoEnv(true)
+	if err = rconfig.Parse(&cfg); err != nil {
+		return fmt.Errorf("parsing cli options: %w", err)
 	}
 
-	commitMessage, err := quickTemplate("commitMessage", []byte(config.ReleaseCommitMessage), map[string]interface{}{
-		"Version": stringVersion,
-	})
+	if cfg.VersionAndExit {
+		fmt.Printf("git-changerelease %s\n", version) //nolint:forbidigo // Fine in this case
+		return errExitZero
+	}
+
+	cfg.ConfigFile, err = homedir.Expand(cfg.ConfigFile)
 	if err != nil {
-		return errors.Wrap(err, "Unable to compile commit message")
-	}
-	if _, err := gitErr("commit", "-m", string(commitMessage)); err != nil {
-		return errors.Wrap(err, "Unable to commit changelog")
+		return fmt.Errorf("expanding file path: %w", err)
 	}
 
-	tagType := "-s" // By default use signed tags
-	if config.DiableTagSigning {
-		tagType = "-a" // If requested switch to annotated tags
+	var l logrus.Level
+	if l, err = logrus.ParseLevel(cfg.LogLevel); err != nil {
+		return fmt.Errorf("parsing log-level: %w", err)
+	}
+	logrus.SetLevel(l)
+
+	if cfg.MkConfig {
+		if err = os.WriteFile(cfg.ConfigFile, mustAsset("assets/git_changerelease.yaml"), fileModeConfig); err != nil {
+			return fmt.Errorf("writing example config to %q: %w", cfg.ConfigFile, err)
+		}
+		logrus.Infof("wrote an example configuration to %q", cfg.ConfigFile)
+		return errExitZero
 	}
 
-	if _, err := gitErr("tag", tagType, "-m", stringVersion, stringVersion); err != nil {
-		return errors.Wrap(err, "Unable to tag release")
+	if !cfg.NoEdit && os.Getenv("EDITOR") == "" {
+		return errors.New("tried to open the changelog in the editor but there is no $EDITOR in your env")
+	}
+
+	if config, err = loadConfig(); err != nil {
+		return fmt.Errorf("loading config file: %w", err)
+	}
+
+	// Collect matchers
+	if err = loadMatcherRegex(config.MatchPatch, semVerBumpPatch); err != nil {
+		return fmt.Errorf("loading patch matcher: %w", err)
+	}
+
+	if err = loadMatcherRegex(config.MatchMajor, semVerBumpMajor); err != nil {
+		return fmt.Errorf("loading major matcher: %w", err)
+	}
+
+	if cfg.ChangelogFile, err = filenameInGitRoot(cfg.ChangelogFile); err != nil {
+		return fmt.Errorf("getting absolute path to changelog file: %w", err)
 	}
 
 	return nil
-}
-
-func fetchGitLogs(since string, fetchAll bool) ([]commit, error) {
-	// Fetch logs since last tag / since repo start
-	logArgs := []string{"log", `--format=` + gitLogFormat, "--abbrev-commit"}
-	if !fetchAll {
-		logArgs = append(logArgs, fmt.Sprintf("%s..HEAD", since))
-	}
-
-	rawLogs, err := gitErr(logArgs...)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to read git log entries")
-	}
-
-	logs := []commit{}
-
-	for _, l := range strings.Split(rawLogs, "\n") {
-		if l == "" {
-			continue
-		}
-		pl, err := parseCommit(l)
-		if err != nil {
-			return nil, errors.New("Git used an unexpected log format")
-		}
-
-		addLog := true
-		for _, match := range config.IgnoreMessages {
-			r := regexp.MustCompile(match)
-			if r.MatchString(pl.Subject) {
-				addLog = false
-				break
-			}
-		}
-
-		if addLog {
-			logs = append(logs, *pl)
-		}
-	}
-
-	return logs, nil
-}
-
-func filenameToGitRoot(fn string) (string, error) {
-	root, err := git(false, "rev-parse", "--show-toplevel")
-	if err != nil {
-		return "", errors.Wrap(err, "Unable to fetch root dir")
-	}
-
-	return path.Join(root, fn), nil
 }
 
 func loadMatcherRegex(matches []string, bump semVerBump) error {
 	for _, match := range matches {
 		r, err := regexp.Compile(match)
 		if err != nil {
-			return errors.Wrapf(err, "Unable to parse regex '%s'", match)
+			return fmt.Errorf("parsing regex %q: %w", match, err)
 		}
 		matchers[r] = bump
 	}
@@ -132,7 +112,13 @@ func loadMatcherRegex(matches []string, bump semVerBump) error {
 }
 
 func main() {
-	prepareRun()
+	var err error
+	if err = initApp(); err != nil {
+		if errors.Is(err, errExitZero) {
+			os.Exit(0)
+		}
+		logrus.WithError(err).Fatal("initializing app")
+	}
 
 	// Get last tag
 	lastTag, err := gitSilent("describe", "--tags", "--abbrev=0", `--match=v[0-9]*\.[0-9]*\.[0-9]*`)
@@ -142,28 +128,28 @@ func main() {
 
 	logs, err := fetchGitLogs(lastTag, err != nil)
 	if err != nil {
-		log.WithError(err).Fatal("Could not fetch git logs")
+		logrus.WithError(err).Fatal("fetching git logs")
 	}
 
 	if len(logs) == 0 {
-		log.Info("Found no changes since last tag, stopping now.")
+		logrus.Info("found no changes since last tag, stopping now.")
 		return
 	}
 
 	// Generate new version
 	newVersion, err := newVersionFromLogs(lastTag, logs)
 	if err != nil {
-		log.WithError(err).Fatal("Was unable to bump version")
+		logrus.WithError(err).Fatal("bumping version")
 	}
 
 	// Render log
-	if newVersion, err = renderLog(newVersion, logs); err != nil {
-		log.WithError(err).Fatal("Could not write changelog")
+	if newVersion, err = renderLogAndGetVersion(newVersion, logs); err != nil {
+		logrus.WithError(err).Fatal("writing changelog")
 	}
 
 	// Write the tag
 	if err = applyTag("v" + newVersion.String()); err != nil {
-		log.WithError(err).Fatal("Unable to apply tag")
+		logrus.WithError(err).Fatal("applying tag")
 	}
 }
 
@@ -171,140 +157,104 @@ func newVersionFromLogs(lastTag string, logs []commit) (*semVer, error) {
 	// Tetermine increase type
 	semVerBumpType, err := selectBumpType(logs)
 	if err != nil {
-		return nil, errors.Wrap(err, "Could not determine how to increase the version")
+		return nil, fmt.Errorf("determining bump type: %w", err)
 	}
 
 	// Generate new version
 	newVersion, err := parseSemVer(lastTag)
 	if err != nil {
-		return nil, errors.Wrap(err, "Was unable to parse previous version")
+		return nil, fmt.Errorf("parsing previous version: %w", err)
 	}
-	if newVersion.PreReleaseInformation == "" && cfg.PreRelease == "" {
-		newVersion.Bump(semVerBumpType)
+	newVersion.Bump(semVerBumpType)
+	if err = newVersion.SetPrerelease(cfg.PreRelease); err != nil {
+		return newVersion, fmt.Errorf("setting prerelease: %w", err)
 	}
-	newVersion.PreReleaseInformation = cfg.PreRelease
-	newVersion.MetaData = cfg.ReleaseMeta
+	if err = newVersion.SetMetadata(cfg.ReleaseMeta); err != nil {
+		return newVersion, fmt.Errorf("setting metadata: %w", err)
+	}
 
 	return newVersion, nil
 }
 
-func prepareRun() {
-	var err error
-
-	rconfig.AutoEnv(true)
-	if err = rconfig.Parse(&cfg); err != nil {
-		log.WithError(err).Fatal("Unable to parse commandline options")
-	}
-
-	if cfg.VersionAndExit {
-		fmt.Printf("git-changerelease %s\n", version)
-		os.Exit(0)
-	}
-
-	cfg.ConfigFile, err = homedir.Expand(cfg.ConfigFile)
-	if err != nil {
-		log.WithError(err).Fatal("Could not expand config file path")
-	}
-
-	var l log.Level
-	if l, err = log.ParseLevel(cfg.LogLevel); err != nil {
-		log.WithError(err).Fatal("Unable to parse log level")
-	} else {
-		log.SetLevel(l)
-	}
-
-	if cfg.MkConfig {
-		if err = ioutil.WriteFile(cfg.ConfigFile, MustAsset("assets/git_changerelease.yaml"), 0600); err != nil {
-			log.WithError(err).Fatalf("Could not write example configuration to %q", cfg.ConfigFile)
-		}
-		log.Infof("Wrote an example configuration to %q", cfg.ConfigFile)
-		os.Exit(0)
-	}
-
-	if !cfg.NoEdit && os.Getenv("EDITOR") == "" {
-		log.Fatal("You chose to open the changelog in the editor but there is no $EDITOR in your env")
-	}
-
-	if config, err = loadConfig(); err != nil {
-		log.WithError(err).Fatal("Unable to load config file")
-	}
-
-	// Collect matchers
-	if err = loadMatcherRegex(config.MatchPatch, semVerBumpPatch); err != nil {
-		log.WithError(err).Fatal("Unable to load patch matcher expressions")
-	}
-
-	if err = loadMatcherRegex(config.MatchMajor, semVerBumpMajor); err != nil {
-		log.WithError(err).Fatal("Unable to load major matcher expressions")
-	}
-
-	if cfg.ChangelogFile, err = filenameToGitRoot(cfg.ChangelogFile); err != nil {
-		log.WithError(err).Fatal("Unable to get absolute path to changelog file")
-	}
-}
-
-func quickTemplate(name string, tplSrc []byte, values map[string]interface{}) ([]byte, error) {
-	tpl, err := template.New(name).Parse(string(tplSrc))
-	if err != nil {
-		return nil, errors.New("Unable to parse log template: " + err.Error())
-	}
-
-	buf := bytes.NewBuffer([]byte{})
-	if err := tpl.Execute(buf, values); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
-}
-
-func readChangelog() string {
+func readChangelog() (string, error) {
 	if _, err := os.Stat(cfg.ChangelogFile); err != nil {
-		log.Warn("Changelog file does not yet exist, creating one")
-		return ""
+		if errors.Is(err, fs.ErrNotExist) {
+			logrus.Warn("changelog file does not yet exist, creating one")
+			return "", nil
+		}
+		return "", fmt.Errorf("getting file stat: %w", err)
 	}
 
-	d, err := ioutil.ReadFile(cfg.ChangelogFile)
+	d, err := os.ReadFile(cfg.ChangelogFile)
 	if err != nil {
-		log.WithError(err).Fatal("Unable to read old changelog")
+		return "", fmt.Errorf("reading file: %w", err)
 	}
-	return string(d)
+	return string(d), nil
 }
 
-func renderLog(newVersion *semVer, logs []commit) (*semVer, error) {
-	c, err := quickTemplate("log_template", MustAsset("assets/log_template.md"), map[string]interface{}{
-		"NextVersion": newVersion,
-		"Now":         time.Now(),
-		"LogLines":    logs,
-		"OldLog":      readChangelog(),
+func renderLogAndGetVersion(newVersion *semVer, logs []commit) (*semVer, error) {
+	oldLog, err := readChangelog()
+	if err != nil {
+		return nil, fmt.Errorf("reading old changelog: %w", err)
+	}
+
+	c, err := renderTemplate("log_template", mustAsset("assets/log_template.md"), struct {
+		NextVersion *semVer
+		Now         time.Time
+		LogLines    []commit
+		OldLog      string
+	}{
+		NextVersion: newVersion,
+		Now:         time.Now(),
+		LogLines:    logs,
+		OldLog:      oldLog,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to compile log")
+		return nil, fmt.Errorf("rendering log: %w", err)
 	}
 
-	if err = ioutil.WriteFile(cfg.ChangelogFile, bytes.TrimSpace(c), 0644); err != nil {
-		return nil, errors.Wrap(err, "Unable to write new changelog")
+	// Strip whitespaces on start / end
+	c = bytes.TrimSpace(c)
+
+	if err = os.WriteFile(cfg.ChangelogFile, c, fileModeChangelog); err != nil {
+		return nil, fmt.Errorf("writing changelog: %w", err)
 	}
 
 	// Spawning editor
 	if !cfg.NoEdit {
-		editor := exec.Command(os.Getenv("EDITOR"), cfg.ChangelogFile)
+		editor := exec.Command(os.Getenv("EDITOR"), cfg.ChangelogFile) //#nosec:G204 // This is intended to use OS editor with configured changelog file
 		editor.Stdin = os.Stdin
 		editor.Stdout = os.Stdout
 		editor.Stderr = os.Stderr
 		if err = editor.Run(); err != nil {
-			return nil, errors.New("Editor ended with non-zero status, stopping here")
+			return nil, fmt.Errorf("editor process caused error: %w", err)
 		}
 	}
 
 	// Read back version from changelog file
-	changelog := strings.Split(readChangelog(), "\n")
+	changelog := strings.Split(string(c), "\n")
 	if len(changelog) < 1 {
-		return nil, errors.New("Changelog is empty, no way to read back the version")
+		return nil, errors.New("changelog is empty, no way to read back the version")
 	}
+
 	newVersion, err = parseSemVer(strings.Split(changelog[0], " ")[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to parse new version from log")
+		return nil, fmt.Errorf("parsing new version from log: %w", err)
 	}
 
 	return newVersion, nil
+}
+
+func renderTemplate(name string, tplSrc []byte, values any) ([]byte, error) {
+	tpl, err := template.New(name).Parse(string(tplSrc))
+	if err != nil {
+		return nil, fmt.Errorf("parsing template: %w", err)
+	}
+
+	buf := new(bytes.Buffer)
+	if err := tpl.Execute(buf, values); err != nil {
+		return nil, fmt.Errorf("executing template: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }

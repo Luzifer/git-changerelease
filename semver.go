@@ -2,8 +2,9 @@ package main
 
 import (
 	"errors"
-	"strconv"
-	"strings"
+	"fmt"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 type semVerBump uint
@@ -16,78 +17,52 @@ const (
 )
 
 type semVer struct {
-	Major, Minor, Patch   int
-	PreReleaseInformation string
-	MetaData              string
+	*semver.Version
 }
 
-func (s *semVer) String() string {
-	v := []string{strings.Join([]string{
-		strconv.Itoa(s.Major),
-		strconv.Itoa(s.Minor),
-		strconv.Itoa(s.Patch),
-	}, ".")}
-
-	if s.PreReleaseInformation != "" {
-		v = append(v, "-"+s.PreReleaseInformation)
-	}
-	if s.MetaData != "" {
-		v = append(v, "+"+s.MetaData)
+func (s *semVer) SetMetadata(metadata string) error {
+	nv, err := s.Version.SetMetadata(metadata)
+	if err != nil {
+		return fmt.Errorf("setting metadata: %w", err)
 	}
 
-	return strings.Join(v, "")
+	s.Version = &nv
+	return nil
+}
+
+func (s *semVer) SetPrerelease(prerelease string) error {
+	nv, err := s.Version.SetPrerelease(prerelease)
+	if err != nil {
+		return fmt.Errorf("setting prerelease: %w", err)
+	}
+
+	s.Version = &nv
+	return nil
 }
 
 func parseSemVer(version string) (*semVer, error) {
-	var (
-		s   semVer
-		err error
-	)
-	version = strings.TrimLeft(version, "v") // Ensure the version is not prefixed like v0.1.0
-
-	t := strings.SplitN(version, "+", 2)
-	if len(t) == 2 {
-		s.MetaData = t[1]
-	}
-
-	t = strings.SplitN(t[0], "-", 2)
-	if len(t) == 2 {
-		s.PreReleaseInformation = t[1]
-	}
-
-	elements := strings.Split(t[0], ".")
-	if len(elements) != 3 {
-		return nil, errors.New("Version does not match semantic versioning format")
-	}
-
-	s.Major, err = strconv.Atoi(elements[0])
+	v, err := semver.NewVersion(version)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing semver: %w", err)
 	}
-	s.Minor, err = strconv.Atoi(elements[1])
-	if err != nil {
-		return nil, err
-	}
-	s.Patch, err = strconv.Atoi(elements[2])
-	if err != nil {
-		return nil, err
-	}
-
-	return &s, nil
+	return &semVer{v}, nil
 }
 
 func (s *semVer) Bump(bumpType semVerBump) {
+	var nv semver.Version
+
 	switch bumpType {
 	case semVerBumpPatch:
-		s.Patch++
+		nv = s.Version.IncPatch()
+
 	case semVerBumpMinor:
-		s.Patch = 0
-		s.Minor++
+		nv = s.Version.IncMinor()
+
 	case semVerBumpMajor:
-		s.Patch = 0
-		s.Minor = 0
-		s.Major++
+		nv = s.Version.IncMajor()
 	}
+
+	s.Version = &nv
 }
 
 func selectBumpType(logs []commit) (semVerBump, error) {
@@ -101,7 +76,7 @@ func selectBumpType(logs []commit) (semVerBump, error) {
 
 	if bump == semVerBumpUndecided {
 		// Impossible to reach
-		return semVerBumpUndecided, errors.New("Could not decide for any bump type")
+		return semVerBumpUndecided, errors.New("could not decide for any bump type")
 	}
 
 	return bump, nil
