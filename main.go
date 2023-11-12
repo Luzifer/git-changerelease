@@ -218,9 +218,6 @@ func renderLogAndGetVersion(newVersion *semVer, logs []commit) (*semVer, error) 
 		return nil, fmt.Errorf("rendering log: %w", err)
 	}
 
-	// Strip whitespaces on start / end
-	c = bytes.TrimSpace(c)
-
 	if err = os.WriteFile(cfg.ChangelogFile, c, fileModeChangelog); err != nil {
 		return nil, fmt.Errorf("writing changelog: %w", err)
 	}
