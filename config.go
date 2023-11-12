@@ -19,6 +19,8 @@ type configFile struct {
 	ReleaseCommitMessage string `yaml:"release_commit_message"`
 
 	IgnoreMessages []string `yaml:"ignore_messages"`
+
+	PreCommitCommands []string `yaml:"pre_commit_commands"`
 }
 
 func loadConfig(configFiles ...string) (*configFile, error) {

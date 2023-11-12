@@ -3,6 +3,7 @@ module github.com/Luzifer/git-changerelease
 go 1.21
 
 require (
+	github.com/Luzifer/go_helpers/v2 v2.21.0
 	github.com/Luzifer/rconfig/v2 v2.4.0
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/mitchellh/go-homedir v1.1.0

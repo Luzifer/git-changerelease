@@ -15,6 +15,7 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
 
+	"github.com/Luzifer/go_helpers/v2/env"
 	"github.com/Luzifer/rconfig/v2"
 )
 
@@ -152,6 +153,12 @@ func main() {
 		logrus.WithError(err).Fatal("writing changelog")
 	}
 
+	for _, pc := range config.PreCommitCommands {
+		if err = runUserCommand(pc, map[string]string{"TAG_VERSION": newVersion.String()}); err != nil {
+			logrus.WithError(err).WithField("cmd", pc).Fatal("executing pre-commit-commands")
+		}
+	}
+
 	// Write the tag
 	if err = applyTag("v" + newVersion.String()); err != nil {
 		logrus.WithError(err).Fatal("applying tag")
@@ -259,4 +266,44 @@ func renderTemplate(name string, tplSrc []byte, values any) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func runUserCommand(command string, extraEnv map[string]string) error {
+	if len(command) == 0 {
+		return errors.New("empty command specified")
+	}
+
+	// Check whether command is prefixed with a minus: If so the error
+	// will only be logged and is not fatal to the changerelease run
+	fatal := command[0] != '-'
+	if !fatal {
+		command = command[1:]
+	}
+
+	logrus.WithField("fatal", fatal).WithField("command", command).Trace("running pre_commit_commands")
+
+	envVars := env.ListToMap(os.Environ())
+	for k, v := range extraEnv {
+		envVars[k] = v
+	}
+
+	wd, err := filenameInGitRoot(".")
+	if err != nil {
+		return fmt.Errorf("determining workdir for commands: %w", err)
+	}
+
+	cmd := exec.Command("/usr/bin/env", "bash", "-ec", command)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Env = env.MapToList(envVars)
+	cmd.Dir = wd
+
+	if err = cmd.Run(); err != nil {
+		if fatal {
+			return fmt.Errorf("command had error: %w", err)
+		}
+		logrus.WithError(err).WithField("cmd", command).Warn("command had error, marked as non-fatal")
+	}
+
+	return nil
 }
