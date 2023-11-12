@@ -1,3 +1,15 @@
+# 0.11.0 / 2023-11-12
+
+  * New Features
+    * Add support for pre-commit-commands
+    * Add support for project-specific configs
+
+  * Improvements
+    * Modernize code, update deps, fix linter errors
+
+  * Bugfixes
+    * Fix: Remove whitespace from old log
+
 # 0.10.0 / 2020-08-07
 
   * Reference changelog file in git repo root
