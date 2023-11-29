@@ -1,3 +1,7 @@
+# 0.11.1 / 2023-11-29
+
+  * Fix: Need to read the changelog after editing to get new version
+
 # 0.11.0 / 2023-11-12
 
   * New Features
