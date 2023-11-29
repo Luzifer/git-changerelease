@@ -241,7 +241,12 @@ func renderLogAndGetVersion(newVersion *semVer, logs []commit) (*semVer, error) 
 	}
 
 	// Read back version from changelog file
-	changelog := strings.Split(string(c), "\n")
+	newLog, err := readChangelog()
+	if err != nil {
+		return nil, fmt.Errorf("reading back changelog after edit: %w", err)
+	}
+
+	changelog := strings.Split(newLog, "\n")
 	if len(changelog) < 1 {
 		return nil, errors.New("changelog is empty, no way to read back the version")
 	}
